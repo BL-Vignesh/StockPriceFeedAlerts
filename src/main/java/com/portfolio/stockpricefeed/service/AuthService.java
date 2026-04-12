@@ -1,10 +1,14 @@
 package com.portfolio.stockpricefeed.service;
 
+import com.portfolio.stockpricefeed.dto.request.LoginRequest;
 import com.portfolio.stockpricefeed.dto.request.RegisterRequest;
+import com.portfolio.stockpricefeed.dto.response.LoginResponse;
 import com.portfolio.stockpricefeed.dto.response.RegisterResponse;
 import com.portfolio.stockpricefeed.entities.User;
+import com.portfolio.stockpricefeed.exception.InvalidCredentialsException;
 import com.portfolio.stockpricefeed.exception.UserAlreadyExistsException;
 import com.portfolio.stockpricefeed.repository.UserRepository;
+import com.portfolio.stockpricefeed.security.JwtUtil;
 import com.portfolio.stockpricefeed.util.PasswordValidator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,6 +19,7 @@ import java.util.Optional;
 
 /**
  * US1 - User Registration
+ * US2 - User Login with JWT
  */
 @Service
 @RequiredArgsConstructor
@@ -23,6 +28,7 @@ public class AuthService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JwtUtil jwtUtil;
 
     // ── US1: Register ─────────────────────────────────────────────
 
@@ -85,4 +91,48 @@ public class AuthService {
                 .build();
     }
 
+    // ── US2: Login ────────────────────────────────────────────────
+
+    /**
+     * Authenticates user and returns a JWT token.
+     *
+     * Steps:
+     * 1. Find user by email or username (using Optional)
+     * 2. Verify password using BCrypt
+     * 3. Generate JWT token
+     *
+     * Console output:
+     * [LOGIN] Attempt → emailOrUsername=john@example.com
+     * [LOGIN] Success → userId=1 username=john token=eyJ...
+     */
+    public LoginResponse login(LoginRequest request) {
+        log.info("[LOGIN] Attempt → emailOrUsername={}", request.getEmailOrUsername());
+
+        // US2: Using Optional for user fetching (as required)
+        Optional<User> userOpt = userRepository.findByEmail(request.getEmailOrUsername())
+                .or(() -> userRepository.findByUsername(request.getEmailOrUsername()));
+
+        User user = userOpt.orElseThrow(() -> {
+            log.warn("[LOGIN] Failed → User not found: {}", request.getEmailOrUsername());
+            return new InvalidCredentialsException("Invalid email/username or password");
+        });
+
+        // Verify password with BCrypt
+        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+            log.warn("[LOGIN] Failed → Incorrect password for user: {}", user.getUsername());
+            throw new InvalidCredentialsException("Invalid email/username or password");
+        }
+
+        // Generate JWT
+        String token = jwtUtil.generateToken(user.getId(), user.getUsername());
+        log.info("[LOGIN] Success → userId={} username={}", user.getId(), user.getUsername());
+
+        return LoginResponse.builder()
+                .token(token)
+                .tokenType("Bearer")
+                .userId(user.getId())
+                .username(user.getUsername())
+                .email(user.getEmail())
+                .build();
+    }
 }
