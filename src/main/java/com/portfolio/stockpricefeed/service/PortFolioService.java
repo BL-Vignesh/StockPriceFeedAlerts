@@ -127,6 +127,7 @@ public class PortFolioService {
                     existing.setQuantity(quantity);
                     existing.setBuyPrice(buyPrice);
                     existing.setThresholdPrice(thresholdPrice);
+                    existing.setThresholdAlertSent(false); // Reset alert flag on update
                     savedPortfolios.add(repository.save(existing));
                 } else {
                     Portfolio newPortfolio = new Portfolio();
@@ -135,6 +136,7 @@ public class PortFolioService {
                     newPortfolio.setQuantity(quantity);
                     newPortfolio.setBuyPrice(buyPrice);
                     newPortfolio.setThresholdPrice(thresholdPrice);
+                    newPortfolio.setThresholdAlertSent(false); // Init flag
                     savedPortfolios.add(repository.save(newPortfolio));
                 }
             }
@@ -166,7 +168,13 @@ public class PortFolioService {
         Portfolio existing = repository.findById(id).orElseThrow(() -> new RuntimeException("Holding not found"));
         existing.setQuantity(updatedData.getQuantity());
         existing.setBuyPrice(updatedData.getBuyPrice());
+        
+        // If threshold changed, reset the alert flag so they can receive an alert again
+        if (existing.getThresholdPrice() != updatedData.getThresholdPrice()) {
+            existing.setThresholdAlertSent(false);
+        }
         existing.setThresholdPrice(updatedData.getThresholdPrice());
+        
         return repository.save(existing);
     }
     
@@ -175,6 +183,7 @@ public class PortFolioService {
     public Portfolio updateThreshold(Long id, double newThreshold) {
         Portfolio existing = repository.findById(id).orElseThrow(() -> new RuntimeException("Holding not found"));
         existing.setThresholdPrice(newThreshold);
+        existing.setThresholdAlertSent(false); // Reset the flag because they updated the threshold
         return repository.save(existing);
     }
 
