@@ -27,6 +27,9 @@ public class KafkaConsumer {
     @Autowired
     private SseEmitterRegistry sseEmitterRegistry;
 
+    @Autowired
+    private com.portfolio.stockpricefeed.service.AlertGenerator alertGenerator;
+
     /**
      * Listens to the Kafka topic "stock-price-topic".
      *
@@ -85,8 +88,13 @@ public class KafkaConsumer {
             // Push to the UI via SSE (event name: "price-update")
             sseEmitterRegistry.sendPriceUpdate(p.getUserId(), itemSummary);
 
-            // Step 5: If threshold crossed, send a separate "alert" SSE event
-            if (thresholdCrossed) {
+            // Step 5: If threshold crossed AND we haven't already sent an alert for this limit
+            if (thresholdCrossed && !p.isThresholdAlertSent()) {
+                
+                // Fix Race Condition: Lock the alert state instantly before async processing
+                p.setThresholdAlertSent(true);
+                repository.save(p);
+
                 StockPriceAlert alert = new StockPriceAlert(
                         p.getUserId(),
                         p.getStockSymbol(),
@@ -96,6 +104,10 @@ public class KafkaConsumer {
                 );
                 // Push to the UI via SSE (event name: "alert")
                 sseEmitterRegistry.sendAlert(p.getUserId(), alert);
+                
+                // Publish to RabbitMQ to dispatch Email asynchronously
+                alertGenerator.processAndSendAlert(alert);
+                
                 log.info("Threshold alert sent → userId={} symbol={}", p.getUserId(), p.getStockSymbol());
             }
         }

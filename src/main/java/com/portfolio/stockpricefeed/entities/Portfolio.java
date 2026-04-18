@@ -22,4 +22,6 @@ public class Portfolio {
 
     private double thresholdPrice;
 
+    private boolean thresholdAlertSent;
+
 }
