@@ -1,43 +1,100 @@
 # Real-Time Portfolio Alerts System
 
-A robust Spring Boot backend application providing real-time stock portfolio tracking, threshold alerts, bulk Excel uploads, and a secure JWT-based authentication system.
+A robust Spring Boot backend application providing real-time stock portfolio tracking, threshold alerts, bulk Excel uploads, and a secure JWT-based authentication system with RabbitMQ-driven email notifications.
 
-## 🚀 Core Features
+---
 
-- **Authentication System (US1 & US2):** Secure user registration and login flows utilizing stateless JSON Web Tokens (JWT).
-- **Market Data API (US3 & US4):** Live fetching of current stock prices from Yahoo Finance API for the top 50 NSE stocks.
-- **Portfolio Management (US6 - US8):** Complete set of endpoints allowing users to manually create, edit, update, or remove stock holdings, as well as configure custom alert-threshold prices.
-- **Bulk Upload Processing (US5):** Server-side raw Excel (`.xls` / `.xlsx`) parsing using **Apache POI**. Users can upload complete offline spreadsheets to instantiate their portfolios instantly.
-- **Real-Time Data Streams (US9 & US10):** Event-driven architecture powered by **Apache Kafka** and **Server-Sent Events (SSE)**. Instantly pushes live price valuations, gain/loss metrics, and threshold-breach alerts directly to the frontend the moment they occur.
-- **API Documentation:** Interactive and auto-updating Swagger documentation endpoint.
+## 👤 Profile
+| Field | Details |
+|---|---|
+| **Project Name** | RealTime Portfolio Alerts |
+| **Artifact ID** | `StockPriceFeed` |
+| **Group ID** | `com.portfolio` |
+| **Version** | `0.0.1-SNAPSHOT` |
+| **Language** | Java 17 |
+| **Framework** | Spring Boot 3.3.0 |
+| **Database** | PostgreSQL |
+| **Authentication** | JWT |
+| **Message Queues** | Apache Kafka + RabbitMQ |
+| **Build Tool** | Maven |
+
+---
+
+## 📋 Description
+Real-Time Portfolio Alerts is a complete backend REST API that allows authenticated investors to:
+- Register and login securely with JWT authentication
+- Upload portfolio via Excel using Apache POI or add stocks manually via UI form
+- Validate stocks and view live portfolio valuation
+- Manage portfolio — update quantity/price, delete stocks
+- Set upper and lower % threshold alerts per stock
+- Monitor portfolio in real-time via Kafka price cache & SSE (Server-Sent Events)
+- Receive automated HTML email alerts when price crosses threshold via RabbitMQ
+
+---
+
+## 🏗️ Project Structure
+```text
+StockPriceFeedAlerts/
+├── src/main/java/com/portfolio/stockpricefeed/
+│   ├── config/          # Security, Kafka, RabbitMQ configs
+│   ├── controller/      # REST API endpoints
+│   ├── dto/             # Data Transfer Objects
+│   ├── entities/        # JPA Entities (User, Portfolio, Alert, etc.)
+│   ├── exception/       # Custom exceptions
+│   ├── kafka/           # Kafka producers, consumers, and cache
+│   ├── rabbitmq/        # RabbitMQ email alert processors
+│   ├── repository/      # Spring Data JPA repositories
+│   ├── service/         # Business logic interfaces
+│   ├── serviceImpl/     # Service implementations
+│   └── utils/           # Helper classes (JWT, Excel parsing)
+├── src/main/resources/
+│   └── application.yaml # App configuration
+├── pom.xml              # Maven dependencies
+└── compose.yaml         # Docker compose for Kafka & RabbitMQ
+```
+
+---
 
 ## 🛠 Tech Stack
-
 - **Java 17** & **Spring Boot 3.3.0**
-- **PostgreSQL 16** (Primary Data Store)
-- **Apache Kafka v7.9.0** (KRaft Mode - Message Broker)
+- **PostgreSQL** (Primary Data Store - Running Locally)
+- **Apache Kafka** (Message Broker for Real-time Price Updates)
+- **RabbitMQ** (Message Broker for Email Alert Processing)
 - **Spring Security** & **jjwt** (Token Management)
 - **Apache POI** (Excel Processing)
+- **Spring Boot Mail** (Email Notifications)
 - **Springdoc OpenAPI** (Swagger Documentation)
+- **React** (Frontend UI Dashboard)
 
-## 📦 Prerequisites
+---
 
-Ensure you have the following installed on your machine before running the application locally:
-- [Java Development Kit (JDK) 17](https://jdk.java.net/17/)
-- [Docker & Docker Compose](https://www.docker.com/) (Required for running Postgres and Kafka instantly)
+## 🚦 US Progress Tracker
+| US | User Story | Status |
+|---|---|---|
+| **US1 & US2** | User Registration & Login (JWT) | ✅ Completed |
+| **US3 & US4** | Home Page & Stock Market API | ✅ Completed |
+| **US5** | Upload Portfolio (Excel) | ✅ Completed |
+| **US6** | Create Portfolio (UI Form) | ✅ Completed |
+| **US7** | Manage Portfolio (Update/Delete) | ✅ Completed |
+| **US8** | Alert Threshold Setting | ✅ Completed |
+| **US9** | Real-time Portfolio Monitor (Kafka + SSE) | ✅ Completed |
+| **US10** | Send Alert Email (RabbitMQ) | ✅ Completed |
+
+---
 
 ## ⚙️ Getting Started
 
-### 1. Boot up the Infrastructure
-This project includes a fully configured `compose.yaml` to spin up your PostgreSQL database and Kafka broker.
-
-Navigate to the root directory where `compose.yaml` is located and run:
+### 1. Boot up the Infrastructure (Kafka & RabbitMQ)
+This project uses Docker to run Kafka and RabbitMQ. Ensure Docker is running, then:
 ```bash
 docker-compose up -d
 ```
 
-### 2. Start the Backend Server
-Once the containers are healthy, you can boot the Spring application using the included Maven wrapper:
+### 2. Configure Local PostgreSQL
+Ensure PostgreSQL is installed locally and running. Update your `application.yaml` with your local Postgres credentials (username, password, database name).
+
+### 3. Start the Backend Server
+Start the Spring application using the included Maven wrapper:
 ```bash
 # On Windows
 .\mvnw.cmd spring-boot:run
@@ -47,8 +104,20 @@ Once the containers are healthy, you can boot the Spring application using the i
 ```
 *The server will start locally on port `8080`.*
 
-### 3. Explore the API
-You can interactively test and view all available endpoints through the built-in Swagger UI. Once the application is running, open your web browser and navigate to:
+### 4. Explore the API via Swagger
+You can interactively test and view all available endpoints through the built-in Swagger UI:
 **👉 [http://localhost:8080/swagger-ui/index.html](http://localhost:8080/swagger-ui/index.html)**
 
-*(Note: During endpoint testing for protected routes, ensure you register a user, login, retrieve the JWT Token, and secure your Swagger session by clicking the green "Authorize" padlock at the top of the interface).*
+*(Note: During endpoint testing for protected routes, ensure you register a user, login, retrieve the JWT Token, and secure your Swagger session by clicking the green "Authorize" padlock).*
+
+---
+
+## 📬 Postman / API Flow
+1. `POST /api/v1/auth/register` - Register a new user
+2. `POST /api/v1/auth/login` - Login to get JWT
+3. `POST /api/v1/portfolio/upload` - Upload Excel portfolio
+4. `POST /api/v1/portfolio` - Add single stock
+5. `GET /api/v1/portfolio` - View portfolio
+6. `POST /api/v1/alerts` - Set threshold alerts
+7. `GET /api/v1/monitor` - Live portfolio tracking
+8. `GET /api/v1/alerts/history` - View triggered alerts
