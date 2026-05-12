@@ -23,7 +23,7 @@ public class CorsConfig implements WebMvcConfigurer {
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/**")
                 .allowedOrigins(
-                        "https://stock-price-feed-app.vercel.app/",
+                        "https://stock-price-feed-app.vercel.app",
                         "http://localhost:3000",
                         "http://localhost:5173")
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
