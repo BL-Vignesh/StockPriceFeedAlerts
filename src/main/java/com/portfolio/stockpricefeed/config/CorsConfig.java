@@ -9,12 +9,12 @@ public class CorsConfig implements WebMvcConfigurer {
 
     /**
      * Allows cross-origin requests from:
-     *   - https://real-time-portfolio-alerts.vercel.app  (the deployed UI)
-     *   - http://localhost:3000                           (local dev)
+     * - https://real-time-portfolio-alerts.vercel.app (the deployed UI)
+     * - http://localhost:3000 (local dev)
      *
      * This is required because:
-     *   - The UI is hosted on Vercel (different origin from your Spring Boot backend)
-     *   - Without this, the browser blocks all requests with a CORS error
+     * - The UI is hosted on Vercel (different origin from your Spring Boot backend)
+     * - Without this, the browser blocks all requests with a CORS error
      *
      * If you deploy your backend to a server (not localhost), you do NOT need
      * to change this file — the Vercel domain is already allowed.
@@ -23,9 +23,9 @@ public class CorsConfig implements WebMvcConfigurer {
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/**")
                 .allowedOrigins(
-                        "https://real-time-portfolio-alerts.vercel.app",
-                        "http://localhost:3000"
-                )
+                        "https://stock-price-feed-app.vercel.app/",
+                        "http://localhost:3000",
+                        "http://localhost:5173")
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                 .allowedHeaders("*")
                 .allowCredentials(false);
