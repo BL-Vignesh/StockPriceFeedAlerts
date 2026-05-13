@@ -135,4 +135,76 @@ public class AuthService {
                 .email(user.getEmail())
                 .build();
     }
+    // ── Profile and Password Management ───────────────────────────
+
+    public com.portfolio.stockpricefeed.dto.response.ProfileResponse getProfile(String username) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found: " + username));
+
+        return com.portfolio.stockpricefeed.dto.response.ProfileResponse.builder()
+                .userId(user.getId())
+                .username(user.getUsername())
+                .email(user.getEmail())
+                .displayName(user.getDisplayName())
+                .phone(user.getPhone())
+                .address(user.getAddress())
+                .build();
+    }
+
+    public com.portfolio.stockpricefeed.dto.response.ProfileResponse updateProfile(String username, com.portfolio.stockpricefeed.dto.request.UpdateProfileRequest request) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found: " + username));
+
+        user.setDisplayName(request.getDisplayName());
+        user.setPhone(request.getPhone());
+        user.setAddress(request.getAddress());
+        
+        if (request.getEmail() != null && !request.getEmail().equals(user.getEmail())) {
+             if (userRepository.existsByEmail(request.getEmail())) {
+                 throw new UserAlreadyExistsException("Email already taken: " + request.getEmail());
+             }
+             user.setEmail(request.getEmail());
+        }
+
+        User savedUser = userRepository.save(user);
+        
+        return com.portfolio.stockpricefeed.dto.response.ProfileResponse.builder()
+                .userId(savedUser.getId())
+                .username(savedUser.getUsername())
+                .email(savedUser.getEmail())
+                .displayName(savedUser.getDisplayName())
+                .phone(savedUser.getPhone())
+                .address(savedUser.getAddress())
+                .build();
+    }
+
+    public LoginResponse changePassword(String username, com.portfolio.stockpricefeed.dto.request.ChangePasswordRequest request) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found: " + username));
+
+        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+            throw new InvalidCredentialsException("Current password is incorrect");
+        }
+
+        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+            throw new IllegalArgumentException("New password and confirm password do not match");
+        }
+        
+        if (!PasswordValidator.isValid(request.getNewPassword())) {
+            throw new IllegalArgumentException(PasswordValidator.getFailureReason(request.getNewPassword()));
+        }
+
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+
+        String token = jwtUtil.generateToken(user.getId(), user.getUsername());
+
+        return LoginResponse.builder()
+                .token(token)
+                .tokenType("Bearer")
+                .userId(user.getId())
+                .username(user.getUsername())
+                .email(user.getEmail())
+                .build();
+    }
 }

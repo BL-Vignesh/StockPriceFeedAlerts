@@ -37,4 +37,9 @@ public class User {
     @Column(nullable = false)
     private String password;   // BCrypt encrypted
 
+    // Profile details
+    private String displayName;
+    private String phone;
+    private String address;
+
 }
