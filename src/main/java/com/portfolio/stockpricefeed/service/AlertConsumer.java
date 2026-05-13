@@ -49,7 +49,7 @@ public class AlertConsumer {
         message.setTo(userEmail); 
         message.setSubject("Stock Price Alert: " + alert.getSymbol());
         message.setText(alert.getMessage() + "\n\nCurrent Price: ₹" + alert.getCurrentPrice() + 
-                        "\nThreshold: ₹" + alert.getThresholdPrice());
+                        "\n" + alert.getAlertType() + " Limit: ₹" + alert.getLimitCrossed());
         
         // This will strictly execute and block database update if SMTP networking/auth fails.
         mailSender.send(message);
@@ -59,7 +59,11 @@ public class AlertConsumer {
         List<Portfolio> holdings = portFolioRepository.findByStockSymbol(alert.getSymbol());
         for (Portfolio p : holdings) {
             if (p.getUserId().equals(alert.getUserId())) {
-                p.setThresholdAlertSent(true);
+                if ("UPPER".equals(alert.getAlertType())) {
+                    p.setUpperAlertSent(true);
+                } else if ("LOWER".equals(alert.getAlertType())) {
+                    p.setLowerAlertSent(true);
+                }
                 portFolioRepository.save(p);
                 break;
             }

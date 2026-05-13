@@ -20,8 +20,12 @@ public class Portfolio {
 
     private double buyPrice;
 
-    private double thresholdPrice;
+    private double upperLimit;
 
-    private boolean thresholdAlertSent;
+    private double lowerLimit;
+
+    private boolean upperAlertSent;
+
+    private boolean lowerAlertSent;
 
 }

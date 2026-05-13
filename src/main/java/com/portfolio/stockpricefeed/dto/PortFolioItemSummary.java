@@ -9,6 +9,7 @@ public class PortFolioItemSummary {
 
     private Long id;
     private String symbol;
+    private String companyName;
     private int quantity;
     private double buyPrice;
     private double currentPrice;
@@ -16,6 +17,8 @@ public class PortFolioItemSummary {
     private double investedValue;
     private double gainLoss;
     private double gainLossPercent;
-    private double thresholdPrice;
-    private boolean thresholdCrossed;
+    private double upperLimit;
+    private double lowerLimit;
+    private boolean upperCrossed;
+    private boolean lowerCrossed;
 }

@@ -44,7 +44,7 @@ public class PortFolioController {
 
     @PostMapping("/add")
     public Portfolio savePortfolio(@RequestBody Portfolio p) {
-        return repository.save(p);
+        return service.savePortfolio(p);
     }
 
     // US5: Bulk add from Excel parsing
@@ -61,10 +61,10 @@ public class PortFolioController {
         return ResponseEntity.ok(service.updatePortfolio(id, p));
     }
 
-    // US8: Update threshold specifically
-    @PutMapping("/{id}/threshold")
-    public ResponseEntity<Portfolio> updateThreshold(@PathVariable Long id, @RequestParam double threshold) {
-        return ResponseEntity.ok(service.updateThreshold(id, threshold));
+    // US8: Update limits specifically
+    @PutMapping("/{id}/limits")
+    public ResponseEntity<Portfolio> updateLimits(@PathVariable Long id, @RequestParam double upperLimit, @RequestParam double lowerLimit) {
+        return ResponseEntity.ok(service.updateLimits(id, upperLimit, lowerLimit));
     }
 
     // US7: Delete

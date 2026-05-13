@@ -30,6 +30,9 @@ public class KafkaConsumer {
     @Autowired
     private com.portfolio.stockpricefeed.service.AlertGenerator alertGenerator;
 
+    @Autowired
+    private com.portfolio.stockpricefeed.service.MarketDataService marketDataService;
+
     /**
      * Listens to the Kafka topic "stock-price-topic".
      *
@@ -64,51 +67,58 @@ public class KafkaConsumer {
             double investedValue   = p.getQuantity() * p.getBuyPrice();
             double gainLoss        = currentValue - investedValue;
             double gainLossPercent = investedValue > 0 ? (gainLoss / investedValue) * 100 : 0;
-            boolean thresholdCrossed = event.getPrice() >= p.getThresholdPrice();
+            
+            boolean upperCrossed = event.getPrice() >= p.getUpperLimit() && p.getUpperLimit() > 0;
+            boolean lowerCrossed = event.getPrice() <= p.getLowerLimit() && p.getLowerLimit() > 0;
 
-            log.info("userId={} symbol={} currentValue={} gainLoss={} thresholdCrossed={}",
-                    p.getUserId(), p.getStockSymbol(), currentValue, gainLoss, thresholdCrossed);
+            log.info("userId={} symbol={} currentValue={} gainLoss={} upperCrossed={} lowerCrossed={}",
+                    p.getUserId(), p.getStockSymbol(), currentValue, gainLoss, upperCrossed, lowerCrossed);
 
             // Step 4: Build the SSE payload for "price-update" event
-            // This matches what the UI's "price-update" event handler expects
+            String companyName = marketDataService.getValidStocks().getOrDefault(p.getStockSymbol(), p.getStockSymbol());
             PortFolioItemSummary itemSummary = new PortFolioItemSummary(
                     p.getId(),
                     p.getStockSymbol(),
+                    companyName,
                     p.getQuantity(),
                     p.getBuyPrice(),
-                    event.getPrice(),      // currentPrice — the new live price
+                    event.getPrice(),
                     currentValue,
                     investedValue,
                     gainLoss,
                     gainLossPercent,
-                    p.getThresholdPrice(),
-                    thresholdCrossed
+                    p.getUpperLimit(),
+                    p.getLowerLimit(),
+                    upperCrossed,
+                    lowerCrossed
             );
 
-            // Push to the UI via SSE (event name: "price-update")
+            // Push to the UI via SSE
             sseEmitterRegistry.sendPriceUpdate(p.getUserId(), itemSummary);
 
-            // Step 5: If threshold crossed AND we haven't already sent an alert for this limit
-            if (thresholdCrossed && !p.isThresholdAlertSent()) {
-                
-                // Fix Race Condition: Lock the alert state instantly before async processing
-                p.setThresholdAlertSent(true);
+            // Step 5: Check Alerts
+            if (upperCrossed && !p.isUpperAlertSent()) {
+                p.setUpperAlertSent(true);
                 repository.save(p);
-
                 StockPriceAlert alert = new StockPriceAlert(
-                        p.getUserId(),
-                        p.getStockSymbol(),
-                        event.getPrice(),
-                        p.getThresholdPrice(),
-                        "Alert: " + p.getStockSymbol() + " crossed your threshold of ₹" + p.getThresholdPrice()
+                        p.getUserId(), p.getStockSymbol(), event.getPrice(), p.getUpperLimit(), "UPPER",
+                        "Alert: " + p.getStockSymbol() + " crossed your upper limit of ₹" + p.getUpperLimit()
                 );
-                // Push to the UI via SSE (event name: "alert")
                 sseEmitterRegistry.sendAlert(p.getUserId(), alert);
-                
-                // Publish to RabbitMQ to dispatch Email asynchronously
                 alertGenerator.processAndSendAlert(alert);
-                
-                log.info("Threshold alert sent → userId={} symbol={}", p.getUserId(), p.getStockSymbol());
+                log.info("Upper limit alert sent → userId={} symbol={}", p.getUserId(), p.getStockSymbol());
+            }
+
+            if (lowerCrossed && !p.isLowerAlertSent()) {
+                p.setLowerAlertSent(true);
+                repository.save(p);
+                StockPriceAlert alert = new StockPriceAlert(
+                        p.getUserId(), p.getStockSymbol(), event.getPrice(), p.getLowerLimit(), "LOWER",
+                        "Alert: " + p.getStockSymbol() + " dropped below your lower limit of ₹" + p.getLowerLimit()
+                );
+                sseEmitterRegistry.sendAlert(p.getUserId(), alert);
+                alertGenerator.processAndSendAlert(alert);
+                log.info("Lower limit alert sent → userId={} symbol={}", p.getUserId(), p.getStockSymbol());
             }
         }
     }
