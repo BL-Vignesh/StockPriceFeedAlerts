@@ -10,6 +10,7 @@ public class StockPriceAlert {
     private Long userId;
     private String symbol;
     private Double currentPrice;
-    private Double thresholdPrice;
+    private Double limitCrossed;
+    private String alertType; // "UPPER" or "LOWER"
     private String message;
 }

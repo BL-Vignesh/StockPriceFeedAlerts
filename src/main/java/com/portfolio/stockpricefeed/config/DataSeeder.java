@@ -38,28 +38,32 @@ public class DataSeeder implements CommandLineRunner {
         aapl.setStockSymbol("AAPL");
         aapl.setQuantity(10);
         aapl.setBuyPrice(150.0);
-        aapl.setThresholdPrice(180.0);
+        aapl.setUpperLimit(180.0);
+        aapl.setLowerLimit(140.0);
 
         Portfolio tsla = new Portfolio();
         tsla.setUserId(1L);
         tsla.setStockSymbol("TSLA");
         tsla.setQuantity(5);
         tsla.setBuyPrice(200.0);
-        tsla.setThresholdPrice(250.0);
+        tsla.setUpperLimit(250.0);
+        tsla.setLowerLimit(180.0);
 
         Portfolio googl = new Portfolio();
         googl.setUserId(1L);
         googl.setStockSymbol("GOOGL");
         googl.setQuantity(2);
         googl.setBuyPrice(130.0);
-        googl.setThresholdPrice(160.0);
+        googl.setUpperLimit(160.0);
+        googl.setLowerLimit(110.0);
 
         Portfolio infy = new Portfolio();
         infy.setUserId(1L);
         infy.setStockSymbol("INFY");
         infy.setQuantity(20);
         infy.setBuyPrice(15.0);
-        infy.setThresholdPrice(20.0);
+        infy.setUpperLimit(20.0);
+        infy.setLowerLimit(10.0);
 
         repository.save(aapl);
         repository.save(tsla);

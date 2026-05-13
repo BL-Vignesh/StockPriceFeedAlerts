@@ -13,11 +13,13 @@ public class PortfolioResponse {
     private String symbol;
     private int quantity;
     private double buyPrice;
-    private double thresholdPrice;
+    private double upperLimit;
+    private double lowerLimit;
     private double currentPrice;
     private double currentValue;
     private double investedValue;
     private double gainLoss;
     private double gainLossPercent;
-    private boolean thresholdCrossed;
+    private boolean upperCrossed;
+    private boolean lowerCrossed;
 }

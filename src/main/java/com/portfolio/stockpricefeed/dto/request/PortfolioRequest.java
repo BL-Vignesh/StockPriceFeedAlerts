@@ -12,5 +12,6 @@ public class PortfolioRequest {
     private String symbol;
     private int quantity;
     private double buyPrice;
-    private double thresholdPrice;
+    private double upperLimit;
+    private double lowerLimit;
 }
