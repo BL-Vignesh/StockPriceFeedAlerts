@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
  * US1 - POST /api/auth/register
  * US2 - POST /api/auth/login
  */
+
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
@@ -29,11 +30,12 @@ public class AuthController {
      * US1 - Register new user.
      *
      * POST /api/auth/register
-     * Body: { "username": "john", "email": "john@example.com", "password": "Pass@123" }
+     * Body: { "username": "john", "email": "john@example.com", "password":
+     * "Pass@123" }
      *
-     * Success  → 201 CREATED  + RegisterResponse
+     * Success → 201 CREATED + RegisterResponse
      * Conflict → 409 CONFLICT + error message
-     * Invalid  → 400 BAD REQUEST + validation errors
+     * Invalid → 400 BAD REQUEST + validation errors
      */
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<RegisterResponse>> register(
@@ -51,7 +53,7 @@ public class AuthController {
      * POST /api/auth/login
      * Body: { "emailOrUsername": "john@example.com", "password": "Pass@123" }
      *
-     * Success      → 200 OK + LoginResponse (with JWT token)
+     * Success → 200 OK + LoginResponse (with JWT token)
      * Unauthorized → 401 UNAUTHORIZED + error message
      */
     @PostMapping("/login")
@@ -61,5 +63,27 @@ public class AuthController {
         log.info("[API] POST /api/auth/login → emailOrUsername={}", request.getEmailOrUsername());
         LoginResponse response = authService.login(request);
         return ResponseEntity.ok(ApiResponse.success("Login successful", response));
+    }
+
+    @GetMapping("/profile")
+    public ResponseEntity<ApiResponse<com.portfolio.stockpricefeed.dto.response.ProfileResponse>> getProfile(java.security.Principal principal) {
+        log.info("[API] GET /api/auth/profile → user={}", principal.getName());
+        return ResponseEntity.ok(ApiResponse.success("Profile fetched", authService.getProfile(principal.getName())));
+    }
+
+    @PutMapping("/profile")
+    public ResponseEntity<ApiResponse<com.portfolio.stockpricefeed.dto.response.ProfileResponse>> updateProfile(
+            java.security.Principal principal,
+            @RequestBody com.portfolio.stockpricefeed.dto.request.UpdateProfileRequest request) {
+        log.info("[API] PUT /api/auth/profile → user={}", principal.getName());
+        return ResponseEntity.ok(ApiResponse.success("Profile updated", authService.updateProfile(principal.getName(), request)));
+    }
+
+    @PostMapping("/change-password")
+    public ResponseEntity<ApiResponse<LoginResponse>> changePassword(
+            java.security.Principal principal,
+            @RequestBody com.portfolio.stockpricefeed.dto.request.ChangePasswordRequest request) {
+        log.info("[API] POST /api/auth/change-password → user={}", principal.getName());
+        return ResponseEntity.ok(ApiResponse.success("Password changed successfully", authService.changePassword(principal.getName(), request)));
     }
 }
