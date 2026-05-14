@@ -6,6 +6,8 @@ import com.portfolio.stockpricefeed.entities.Portfolio;
 import com.portfolio.stockpricefeed.entities.User;
 import com.portfolio.stockpricefeed.repository.PortFolioRepository;
 import com.portfolio.stockpricefeed.repository.UserRepository;
+import com.portfolio.stockpricefeed.repository.AlertHistoryRepository;
+import com.portfolio.stockpricefeed.entities.AlertHistory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
@@ -31,6 +33,9 @@ public class AlertConsumer {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private AlertHistoryRepository alertHistoryRepository;
+
     @RabbitListener(queues = RabbitMQConfig.QUEUE)
     public void consumeAlert(StockPriceAlert alert) {
         logger.info("Received Alert from RabbitMQ Queue for Symbol: {}", alert.getSymbol());
@@ -54,6 +59,18 @@ public class AlertConsumer {
         // This will strictly execute and block database update if SMTP networking/auth fails.
         mailSender.send(message);
         logger.info("Email Alert Dispatched successfully to real inbox: {}", userEmail);
+
+        // Save Alert History
+        AlertHistory history = new AlertHistory();
+        history.setUserId(alert.getUserId());
+        history.setStockSymbol(alert.getSymbol());
+        history.setAlertType(alert.getAlertType());
+        history.setTriggeredPrice(alert.getCurrentPrice());
+        history.setLimitCrossed(alert.getLimitCrossed());
+        history.setMessage(alert.getMessage());
+        history.setTimestamp(java.time.LocalDateTime.now());
+        history.setStatus("DISPATCHED");
+        alertHistoryRepository.save(history);
 
         // 2. Update Database flag to indicate Mail Sent Indicator ONLY if email sent completely.
         List<Portfolio> holdings = portFolioRepository.findByStockSymbol(alert.getSymbol());

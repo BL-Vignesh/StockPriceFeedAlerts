@@ -50,7 +50,7 @@ public class PortFolioController {
     // US5: Bulk add from Excel parsing
     @PostMapping(value = "/bulk", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<List<Portfolio>> saveBulkPortfolios(
-            @RequestParam("file") org.springframework.web.multipart.MultipartFile file, 
+            @RequestParam("file") org.springframework.web.multipart.MultipartFile file,
             @RequestParam("userId") Long userId) {
         return ResponseEntity.ok(service.saveBulkFromExcel(file, userId));
     }
@@ -61,9 +61,11 @@ public class PortFolioController {
         return ResponseEntity.ok(service.updatePortfolio(id, p));
     }
 
-    // US8: Update limits specifically
-    @PutMapping("/{id}/limits")
-    public ResponseEntity<Portfolio> updateLimits(@PathVariable Long id, @RequestParam double upperLimit, @RequestParam double lowerLimit) {
+    // US8: Update threshold specifically
+    @PutMapping("/{id}/threshold")
+    public ResponseEntity<Portfolio> updateThreshold(@PathVariable Long id, 
+                                                     @RequestParam double upperLimit, 
+                                                     @RequestParam double lowerLimit) {
         return ResponseEntity.ok(service.updateLimits(id, upperLimit, lowerLimit));
     }
 
