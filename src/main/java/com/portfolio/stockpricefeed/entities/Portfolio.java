@@ -18,11 +18,9 @@ public class Portfolio {
 
     private int quantity;
 
-    private double buyPrice;
-
-    private double upperLimit;
-
-    private double lowerLimit;
+    private Double buyPrice;
+    private Double upperLimit;
+    private Double lowerLimit;
 
     private boolean upperAlertSent;
 

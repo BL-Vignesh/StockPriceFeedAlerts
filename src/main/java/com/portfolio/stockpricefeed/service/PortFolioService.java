@@ -23,7 +23,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import lombok.extern.slf4j.Slf4j;
+
 @Service
+@Slf4j
 public class PortFolioService {
 
     @Autowired
@@ -182,6 +185,7 @@ public class PortFolioService {
 
     @Transactional
     public Portfolio savePortfolio(Portfolio p) {
+        log.debug("[PORTFOLIO] Saving portfolio for user: {} symbol: {}", p.getUserId(), p.getStockSymbol());
         if (!userRepository.existsById(p.getUserId())) {
             throw new RuntimeException("User not found with ID: " + p.getUserId());
         }
@@ -205,9 +209,9 @@ public class PortFolioService {
             
             // If everything is exactly the same, restrict it from adding/updating
             if (existing.getQuantity() == p.getQuantity() &&
-                Double.compare(existing.getBuyPrice(), p.getBuyPrice()) == 0 &&
-                Double.compare(existing.getUpperLimit(), p.getUpperLimit()) == 0 &&
-                Double.compare(existing.getLowerLimit(), p.getLowerLimit()) == 0) {
+                Double.compare(Optional.ofNullable(existing.getBuyPrice()).orElse(0.0), Optional.ofNullable(p.getBuyPrice()).orElse(0.0)) == 0 &&
+                Double.compare(Optional.ofNullable(existing.getUpperLimit()).orElse(0.0), Optional.ofNullable(p.getUpperLimit()).orElse(0.0)) == 0 &&
+                Double.compare(Optional.ofNullable(existing.getLowerLimit()).orElse(0.0), Optional.ofNullable(p.getLowerLimit()).orElse(0.0)) == 0) {
                 throw new RuntimeException("This exact portfolio entry already exists. No changes were made.");
             }
             
