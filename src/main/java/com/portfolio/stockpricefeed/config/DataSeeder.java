@@ -24,8 +24,26 @@ public class DataSeeder implements CommandLineRunner {
     @Autowired
     private PortFolioRepository repository;
 
+    @Autowired
+    private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
+
     @Override
     public void run(String... args) {
+        log.info("Checking for missing database columns...");
+        try {
+            jdbcTemplate.execute("ALTER TABLE portfolio ADD COLUMN IF NOT EXISTS upper_alert_sent BOOLEAN DEFAULT FALSE");
+            jdbcTemplate.execute("ALTER TABLE portfolio ADD COLUMN IF NOT EXISTS lower_alert_sent BOOLEAN DEFAULT FALSE");
+            try {
+                jdbcTemplate.execute("ALTER TABLE portfolio ALTER COLUMN threshold_alert_sent DROP NOT NULL");
+                jdbcTemplate.execute("ALTER TABLE portfolio ALTER COLUMN threshold_price DROP NOT NULL");
+            } catch (Exception ex) {
+                log.warn("Legacy columns modify skipped: {}", ex.getMessage());
+            }
+            log.info("Database columns verified/added.");
+        } catch (Exception e) {
+            log.error("Error updating database schema: {}", e.getMessage());
+        }
+
         if (repository.count() > 0) {
             log.info("Portfolio data already exists — skipping seed.");
             return;
