@@ -12,6 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
@@ -23,6 +24,9 @@ import java.util.Optional;
 public class AlertConsumer {
 
     private static final Logger logger = LoggerFactory.getLogger(AlertConsumer.class);
+
+    @Value("${spring.mail.username}")
+    private String fromEmail;
 
     @Autowired
     private JavaMailSender mailSender;
@@ -51,6 +55,7 @@ public class AlertConsumer {
 
         // 1. Send Email Notification
         SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom(fromEmail);
         message.setTo(userEmail); 
         message.setSubject("Stock Price Alert: " + alert.getSymbol());
         message.setText(alert.getMessage() + "\n\nCurrent Price: ₹" + alert.getCurrentPrice() + 
@@ -58,7 +63,7 @@ public class AlertConsumer {
         
         // This will strictly execute and block database update if SMTP networking/auth fails.
         mailSender.send(message);
-        logger.info("Email Alert Dispatched successfully to real inbox: {}", userEmail);
+        logger.info("Email Alert Dispatched successfully from host {} to real inbox: {}", fromEmail, userEmail);
 
         // Save Alert History
         AlertHistory history = new AlertHistory();

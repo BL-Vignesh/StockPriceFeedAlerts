@@ -17,11 +17,11 @@ public class SseEmitterRegistry {
 
     /**
      * Called when the UI opens EventSource to /portfolio/{userId}/stream.
-     * Creates a 5-minute SSE connection for that user.
+     * Creates a UNLIMITED-minute SSE connection for that user.
      * The UI's EventSource will auto-reconnect when it times out.
      */
     public SseEmitter register(Long userId) {
-        SseEmitter emitter = new SseEmitter(5 * 60 * 1000L); // 5 minutes
+        SseEmitter emitter = new SseEmitter(Long.MAX_VALUE); // infinity
 
         emitter.onCompletion(() -> {
             emitters.remove(userId);
@@ -87,6 +87,10 @@ public class SseEmitterRegistry {
             emitters.remove(userId);
             log.warn("Failed to send alert to userId={}, removed emitter", userId);
         }
+    }
+
+    public boolean hasActiveConnection(Long userId) {
+        return emitters.containsKey(userId);
     }
 }
 

@@ -1,5 +1,5 @@
 server:
-  port: 8085
+  port: 8080
 
 spring:
   application:
@@ -7,9 +7,9 @@ spring:
 
   # ── PostgreSQL (US1, US2, US4, US5, US6) ──────────────────────
   datasource:
-    url: jdbc:postgresql://localhost:5432/portfolio_db?options=-c%20TimeZone=Asia/Kolkata
+    url: jdbc:postgresql://localhost:5433/portfolio_db?options=-c%20TimeZone=Asia/Kolkata
     username: postgres
-    password: 1234
+    password: postgres
     driver-class-name: org.postgresql.Driver
 
   jpa:

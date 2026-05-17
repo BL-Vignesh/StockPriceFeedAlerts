@@ -18,10 +18,7 @@ import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Cell;
 
 import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -212,7 +209,7 @@ public class PortFolioService {
                 Double.compare(Optional.ofNullable(existing.getBuyPrice()).orElse(0.0), Optional.ofNullable(p.getBuyPrice()).orElse(0.0)) == 0 &&
                 Double.compare(Optional.ofNullable(existing.getUpperLimit()).orElse(0.0), Optional.ofNullable(p.getUpperLimit()).orElse(0.0)) == 0 &&
                 Double.compare(Optional.ofNullable(existing.getLowerLimit()).orElse(0.0), Optional.ofNullable(p.getLowerLimit()).orElse(0.0)) == 0) {
-                throw new RuntimeException("This exact portfolio entry already exists. No changes were made.");
+//                throw new RuntimeException("This exact portfolio entry already exists. No changes were made.");
             }
             
             // Otherwise, update the existing entry (Upsert)
@@ -232,15 +229,19 @@ public class PortFolioService {
     @Transactional
     public Portfolio updatePortfolio(Long id, Portfolio updatedData) {
         Portfolio existing = repository.findById(id).orElseThrow(() -> new RuntimeException("Holding not found"));
-        existing.setQuantity(updatedData.getQuantity());
-        existing.setBuyPrice(updatedData.getBuyPrice());
-        
-        // If threshold changed, reset the alert flag so they can receive an alert again
-        if (existing.getUpperLimit() != updatedData.getUpperLimit()) {
-            existing.setUpperAlertSent(false);
-        }
-        if (existing.getLowerLimit() != updatedData.getLowerLimit()) {
-            existing.setLowerAlertSent(false);
+        if(existing.getStockSymbol().equals(updatedData.getStockSymbol()) && id.equals(existing.getId()) && Objects.equals(updatedData.getUserId(), existing.getUserId())) {
+            existing.setQuantity(updatedData.getQuantity());
+            existing.setBuyPrice(updatedData.getBuyPrice());
+
+            // If threshold changed, reset the alert flag so they can receive an alert again
+            if (existing.getUpperLimit() != updatedData.getUpperLimit()) {
+                existing.setUpperAlertSent(false);
+            }
+            if (existing.getLowerLimit() != updatedData.getLowerLimit()) {
+                existing.setLowerAlertSent(false);
+            }
+        }else {
+            throw new RuntimeException("Doesnt match with the credentials");
         }
         existing.setUpperLimit(updatedData.getUpperLimit());
         existing.setLowerLimit(updatedData.getLowerLimit());
