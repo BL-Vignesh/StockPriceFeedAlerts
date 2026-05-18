@@ -25,6 +25,7 @@ public class CorsConfig implements WebMvcConfigurer {
                 .allowedOrigins(
                         "https://stock-price-feed-app.vercel.app",
                         "http://localhost:3000",
+                        "http://3.110.157.157:4173",
                         "http://localhost:5173")
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                 .allowedHeaders("*")
