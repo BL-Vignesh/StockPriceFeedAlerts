@@ -44,9 +44,26 @@ public class AuthController {
      */
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<RegisterResponse>> register(
-            @Valid @RequestBody RegisterRequest request) {
+            @Valid @RequestBody RegisterRequest request,
+            @RequestHeader(value = "X-Google-Token", required = false) String xGoogleToken,
+            @RequestHeader(value = "googleIdToken", required = false) String googleIdTokenHeader,
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader) {
 
         log.info("[API] POST /api/auth/register → username={}", request.getUsername());
+
+        String googleToken = null;
+        if (xGoogleToken != null && !xGoogleToken.trim().isEmpty()) {
+            googleToken = xGoogleToken;
+        } else if (googleIdTokenHeader != null && !googleIdTokenHeader.trim().isEmpty()) {
+            googleToken = googleIdTokenHeader;
+        } else if (authorizationHeader != null && authorizationHeader.startsWith("Bearer ")) {
+            googleToken = authorizationHeader.substring(7);
+        }
+
+        if (googleToken != null && !googleToken.trim().isEmpty()) {
+            request.setGoogleIdToken(googleToken);
+        }
+
         RegisterResponse response = authService.register(request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("User registered successfully", response));
@@ -63,9 +80,26 @@ public class AuthController {
      */
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<LoginResponse>> login(
-            @Valid @RequestBody LoginRequest request) {
+            @Valid @RequestBody LoginRequest request,
+            @RequestHeader(value = "X-Google-Token", required = false) String xGoogleToken,
+            @RequestHeader(value = "googleIdToken", required = false) String googleIdTokenHeader,
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader) {
 
         log.info("[API] POST /api/auth/login → emailOrUsername={}", request.getEmailOrUsername());
+
+        String googleToken = null;
+        if (xGoogleToken != null && !xGoogleToken.trim().isEmpty()) {
+            googleToken = xGoogleToken;
+        } else if (googleIdTokenHeader != null && !googleIdTokenHeader.trim().isEmpty()) {
+            googleToken = googleIdTokenHeader;
+        } else if (authorizationHeader != null && authorizationHeader.startsWith("Bearer ")) {
+            googleToken = authorizationHeader.substring(7);
+        }
+
+        if (googleToken != null && !googleToken.trim().isEmpty()) {
+            request.setGoogleIdToken(googleToken);
+        }
+
         LoginResponse response = authService.login(request);
         return ResponseEntity.ok(ApiResponse.success("Login successful", response));
     }

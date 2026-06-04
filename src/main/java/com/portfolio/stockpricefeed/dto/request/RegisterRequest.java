@@ -33,4 +33,6 @@ public class RegisterRequest {
             message = "Password must be at least 8 characters and contain uppercase, lowercase, digit, and special character (@#$%^*-_)"
     )
     private String password;
+
+    private String googleIdToken;
 }

@@ -14,7 +14,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -49,10 +51,30 @@ public class AuthService {
     public RegisterResponse register(RegisterRequest request) {
         log.info("[REGISTER] Attempt → username={} email={}", request.getUsername(), request.getEmail());
 
+        boolean isGoogleRegister = request.getGoogleIdToken() != null && !request.getGoogleIdToken().trim().isEmpty();
+
+        if (isGoogleRegister) {
+            // Verify Google token
+            verifyGoogleToken(request.getGoogleIdToken(), request.getEmail());
+        }
+
         // Check duplicate email
         if (userRepository.existsByEmail(request.getEmail())) {
-            log.warn("[REGISTER] Failed → Email already exists: {}", request.getEmail());
-            throw new UserAlreadyExistsException("Email already registered: " + request.getEmail());
+            if (isGoogleRegister) {
+                // If they are registering via Google and already exist, return success immediately (Upsert behavior)
+                // This allows the frontend to proceed to login smoothly.
+                User existingUser = userRepository.findByEmail(request.getEmail()).get();
+                log.info("[REGISTER] User already registered via Google. Returning success for email={}", request.getEmail());
+                return RegisterResponse.builder()
+                        .userId(existingUser.getId())
+                        .username(existingUser.getUsername())
+                        .email(existingUser.getEmail())
+                        .message("User already registered via Google.")
+                        .build();
+            } else {
+                log.warn("[REGISTER] Failed → Email already exists: {}", request.getEmail());
+                throw new UserAlreadyExistsException("Email already registered: " + request.getEmail());
+            }
         }
 
         // Check duplicate username
@@ -61,11 +83,14 @@ public class AuthService {
             throw new UserAlreadyExistsException("Username already taken: " + request.getUsername());
         }
 
-        // Validate password using Java 8 Predicate
-        if (!PasswordValidator.isValid(request.getPassword())) {
-            String reason = PasswordValidator.getFailureReason(request.getPassword());
-            log.warn("[REGISTER] Failed → Password validation: {}", reason);
-            throw new IllegalArgumentException(reason);
+        // If it's a standard registration, validate the password rules.
+        // If it's a Google registration, we bypass rules since they will use default Google@123
+        if (!isGoogleRegister) {
+            if (!PasswordValidator.isValid(request.getPassword())) {
+                String reason = PasswordValidator.getFailureReason(request.getPassword());
+                log.warn("[REGISTER] Failed → Password validation: {}", reason);
+                throw new IllegalArgumentException(reason);
+            }
         }
 
         // Encrypt password using BCrypt
@@ -77,6 +102,7 @@ public class AuthService {
                 .username(request.getUsername())
                 .email(request.getEmail())
                 .password(encryptedPassword)
+                .isGoogleUser(isGoogleRegister)
                 .build();
 
         User savedUser = userRepository.save(user);
@@ -108,6 +134,8 @@ public class AuthService {
     public LoginResponse login(LoginRequest request) {
         log.info("[LOGIN] Attempt → emailOrUsername={}", request.getEmailOrUsername());
 
+        boolean isGoogleLogin = request.getGoogleIdToken() != null && !request.getGoogleIdToken().trim().isEmpty();
+
         // US2: Using Optional for user fetching (as required)
         Optional<User> userOpt = userRepository.findByEmail(request.getEmailOrUsername())
                 .or(() -> userRepository.findByUsername(request.getEmailOrUsername()));
@@ -117,10 +145,21 @@ public class AuthService {
             return new InvalidCredentialsException("Invalid email/username or password");
         });
 
-        // Verify password with BCrypt
-        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-            log.warn("[LOGIN] Failed → Incorrect password for user: {}", user.getUsername());
-            throw new InvalidCredentialsException("Invalid email/username or password");
+        if (isGoogleLogin) {
+            // Verify Google token
+            verifyGoogleToken(request.getGoogleIdToken(), user.getEmail());
+        } else {
+            // If it's a standard password login, but they are marked as a Google user, block it!
+            if (user.isGoogleUser()) {
+                log.warn("[LOGIN] Failed → Password login attempt on Google-only user: {}", user.getEmail());
+                throw new InvalidCredentialsException("This account is registered via Google. Please sign in using Google.");
+            }
+
+            // Verify password with BCrypt
+            if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+                log.warn("[LOGIN] Failed → Incorrect password for user: {}", user.getUsername());
+                throw new InvalidCredentialsException("Invalid email/username or password");
+            }
         }
 
         // Generate JWT
@@ -206,5 +245,64 @@ public class AuthService {
                 .username(user.getUsername())
                 .email(user.getEmail())
                 .build();
+    }
+
+    @SuppressWarnings("unchecked")
+    private void verifyGoogleToken(String idToken, String expectedEmail) {
+        log.info("[GOOGLE-AUTH] Verifying ID token for email={}", expectedEmail);
+        try {
+            // Invoke Google API using helper method to allow stubbing in tests
+            Map<String, Object> response = fetchGoogleTokenInfo(idToken);
+            if (response == null || response.containsKey("error")) {
+                String error = response != null ? (String) response.get("error_description") : "Empty response";
+                log.warn("[GOOGLE-AUTH] Validation failed → {}", error);
+                throw new InvalidCredentialsException("Invalid Google ID token");
+            }
+
+            // Verify Issuer
+            String iss = (String) response.get("iss");
+            if (!"accounts.google.com".equals(iss) && !"https://accounts.google.com".equals(iss)) {
+                log.warn("[GOOGLE-AUTH] Validation failed → Invalid issuer: {}", iss);
+                throw new InvalidCredentialsException("Invalid token issuer");
+            }
+
+            // Verify Email Matches
+            String email = (String) response.get("email");
+            if (email == null || !email.equalsIgnoreCase(expectedEmail)) {
+                log.warn("[GOOGLE-AUTH] Validation failed → Email mismatch. Token email: {}, Expected: {}", email, expectedEmail);
+                throw new InvalidCredentialsException("Google email does not match the registration email");
+            }
+
+            // Verify Email is Verified by Google
+            Object emailVerifiedObj = response.get("email_verified");
+            boolean emailVerified = "true".equals(emailVerifiedObj) || Boolean.TRUE.equals(emailVerifiedObj);
+            if (!emailVerified) {
+                log.warn("[GOOGLE-AUTH] Validation failed → Email is not verified by Google");
+                throw new InvalidCredentialsException("Google email is not verified");
+            }
+
+            // Verify Token Expiration
+            String expStr = (String) response.get("exp");
+            if (expStr != null) {
+                long exp = Long.parseLong(expStr);
+                if (System.currentTimeMillis() / 1000 > exp) {
+                    log.warn("[GOOGLE-AUTH] Validation failed → Token expired");
+                    throw new InvalidCredentialsException("Google ID token has expired");
+                }
+            }
+            log.info("[GOOGLE-AUTH] Token verified successfully for email={}", expectedEmail);
+        } catch (InvalidCredentialsException ice) {
+            throw ice;
+        } catch (Exception e) {
+            log.error("[GOOGLE-AUTH] Error contacting Google tokeninfo API", e);
+            throw new InvalidCredentialsException("Google verification service unavailable: " + e.getMessage());
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> fetchGoogleTokenInfo(String idToken) {
+        RestTemplate restTemplate = new RestTemplate();
+        String url = "https://oauth2.googleapis.com/tokeninfo?id_token=" + idToken;
+        return restTemplate.getForObject(url, Map.class);
     }
 }
