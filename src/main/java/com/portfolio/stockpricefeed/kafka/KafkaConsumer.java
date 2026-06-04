@@ -68,8 +68,11 @@ public class KafkaConsumer {
             double gainLoss        = currentValue - investedValue;
             double gainLossPercent = investedValue > 0 ? (gainLoss / investedValue) * 100 : 0;
             
-            boolean upperCrossed = event.getPrice() >= p.getUpperLimit() && p.getUpperLimit() > 0;
-            boolean lowerCrossed = event.getPrice() <= p.getLowerLimit() && p.getLowerLimit() > 0;
+            double upperTargetPrice = p.getBuyPrice() * (1 + p.getUpperLimit() / 100.0);
+            double lowerTargetPrice = p.getBuyPrice() * (1 - p.getLowerLimit() / 100.0);
+
+            boolean upperCrossed = event.getPrice() >= upperTargetPrice && p.getUpperLimit() > 0;
+            boolean lowerCrossed = event.getPrice() <= lowerTargetPrice && p.getLowerLimit() > 0;
 
             log.info("userId={} symbol={} currentValue={} gainLoss={} upperCrossed={} lowerCrossed={}",
                     p.getUserId(), p.getStockSymbol(), currentValue, gainLoss, upperCrossed, lowerCrossed);
@@ -101,8 +104,8 @@ public class KafkaConsumer {
                 p.setUpperAlertSent(true);
                 repository.save(p);
                 StockPriceAlert alert = new StockPriceAlert(
-                        p.getUserId(), p.getStockSymbol(), event.getPrice(), p.getUpperLimit(), "UPPER",
-                        "Alert: " + p.getStockSymbol() + " crossed your upper limit of ₹" + p.getUpperLimit()
+                        p.getUserId(), p.getStockSymbol(), event.getPrice(), upperTargetPrice, "UPPER",
+                        "Alert: " + p.getStockSymbol() + " crossed your upper limit of " + p.getUpperLimit() + "% (₹" + (Math.round(upperTargetPrice * 100.0) / 100.0) + ")"
                 );
                 sseEmitterRegistry.sendAlert(p.getUserId(), alert);
                 alertGenerator.processAndSendAlert(alert);
@@ -113,8 +116,8 @@ public class KafkaConsumer {
                 p.setLowerAlertSent(true);
                 repository.save(p);
                 StockPriceAlert alert = new StockPriceAlert(
-                        p.getUserId(), p.getStockSymbol(), event.getPrice(), p.getLowerLimit(), "LOWER",
-                        "Alert: " + p.getStockSymbol() + " dropped below your lower limit of ₹" + p.getLowerLimit()
+                        p.getUserId(), p.getStockSymbol(), event.getPrice(), lowerTargetPrice, "LOWER",
+                        "Alert: " + p.getStockSymbol() + " dropped below your lower limit of " + p.getLowerLimit() + "% (₹" + (Math.round(lowerTargetPrice * 100.0) / 100.0) + ")"
                 );
                 sseEmitterRegistry.sendAlert(p.getUserId(), alert);
                 alertGenerator.processAndSendAlert(alert);

@@ -130,6 +130,20 @@ public class PortFolioService {
                 double upperLimit = getNumericValue(row.getCell(3));
                 double lowerLimit = getNumericValue(row.getCell(4));
 
+                // Validate parsed row values
+                Portfolio tempVal = new Portfolio();
+                tempVal.setStockSymbol(symbol);
+                tempVal.setQuantity(quantity);
+                tempVal.setBuyPrice(buyPrice);
+                tempVal.setUpperLimit(upperLimit);
+                tempVal.setLowerLimit(lowerLimit);
+                try {
+                    validatePortfolio(tempVal);
+                } catch (IllegalArgumentException e) {
+                    log.warn("[BULK UPLOAD] Skipping invalid row for symbol={}: {}", symbol, e.getMessage());
+                    continue; // Skip this row
+                }
+
                 // Find existing
                 Optional<Portfolio> existingOpt = repository.findByUserId(userId)
                     .stream()
@@ -194,6 +208,7 @@ public class PortFolioService {
         }
         
         p.setStockSymbol(symbol);
+        validatePortfolio(p);
 
         // Check if the user already holds this stock
         Optional<Portfolio> existingOpt = repository.findByUserId(p.getUserId())
@@ -229,6 +244,12 @@ public class PortFolioService {
     @Transactional
     public Portfolio updatePortfolio(Long id, Portfolio updatedData) {
         Portfolio existing = repository.findById(id).orElseThrow(() -> new RuntimeException("Holding not found"));
+        
+        if (updatedData.getStockSymbol() != null) {
+            updatedData.setStockSymbol(updatedData.getStockSymbol().toUpperCase());
+        }
+        validatePortfolio(updatedData);
+
         if(existing.getStockSymbol().equals(updatedData.getStockSymbol()) && id.equals(existing.getId()) && Objects.equals(updatedData.getUserId(), existing.getUserId())) {
             existing.setQuantity(updatedData.getQuantity());
             existing.setBuyPrice(updatedData.getBuyPrice());
@@ -253,6 +274,15 @@ public class PortFolioService {
     @Transactional
     public Portfolio updateLimits(Long id, double upperLimit, double lowerLimit) {
         Portfolio existing = repository.findById(id).orElseThrow(() -> new RuntimeException("Holding not found"));
+        
+        Portfolio temp = new Portfolio();
+        temp.setStockSymbol(existing.getStockSymbol());
+        temp.setQuantity(existing.getQuantity());
+        temp.setBuyPrice(existing.getBuyPrice());
+        temp.setUpperLimit(upperLimit);
+        temp.setLowerLimit(lowerLimit);
+        validatePortfolio(temp);
+
         existing.setUpperLimit(upperLimit);
         existing.setLowerLimit(lowerLimit);
         existing.setUpperAlertSent(false); // Reset the flag because they updated the threshold
@@ -264,5 +294,37 @@ public class PortFolioService {
     @Transactional
     public void deletePortfolio(Long id) {
         repository.deleteById(id);
+    }
+
+    private void validatePortfolio(Portfolio p) {
+        if (p.getQuantity() <= 0) {
+            throw new IllegalArgumentException("Quantity must be greater than zero.");
+        }
+        if (p.getBuyPrice() <= 0) {
+            throw new IllegalArgumentException("Buy price must be greater than zero.");
+        }
+        if (p.getUpperLimit() < 0) {
+            throw new IllegalArgumentException("Upper limit percentage cannot be negative.");
+        }
+        if (p.getLowerLimit() < 0) {
+            throw new IllegalArgumentException("Lower limit percentage cannot be negative.");
+        }
+        if (p.getLowerLimit() >= 100.0) {
+            throw new IllegalArgumentException("Lower limit percentage must be strictly less than 100%.");
+        }
+
+        // Validate limits against current market price if available
+        double currentPrice = store.getPrice(p.getStockSymbol());
+        if (currentPrice > 0) {
+            double upperTargetPrice = p.getBuyPrice() * (1 + p.getUpperLimit() / 100.0);
+            double lowerTargetPrice = p.getBuyPrice() * (1 - p.getLowerLimit() / 100.0);
+
+            if (p.getUpperLimit() > 0 && currentPrice >= upperTargetPrice) {
+                throw new IllegalArgumentException(String.format("Current price (₹%.2f) is already higher than or equal to the target upper price (₹%.2f based on %.2f%% limit).", currentPrice, upperTargetPrice, p.getUpperLimit()));
+            }
+            if (p.getLowerLimit() > 0 && currentPrice <= lowerTargetPrice) {
+                throw new IllegalArgumentException(String.format("Current price (₹%.2f) is already lower than or equal to the target lower price (₹%.2f based on %.2f%% limit).", currentPrice, lowerTargetPrice, p.getLowerLimit()));
+            }
+        }
     }
 }
