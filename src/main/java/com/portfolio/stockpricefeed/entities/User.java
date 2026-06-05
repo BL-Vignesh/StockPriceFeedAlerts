@@ -42,5 +42,6 @@ public class User {
     private String phone;
     private String address;
 
+    @Column(nullable = false, columnDefinition = "boolean default false")
     private boolean isGoogleUser;
 }
