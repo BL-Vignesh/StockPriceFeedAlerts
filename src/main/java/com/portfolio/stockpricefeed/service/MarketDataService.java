@@ -1,8 +1,17 @@
 package com.portfolio.stockpricefeed.service;
 
 import com.portfolio.stockpricefeed.dto.response.MarketTickerResponse;
+import com.portfolio.stockpricefeed.entities.LivePriceStore;
+import com.portfolio.stockpricefeed.entities.StockPriceEvent;
+import com.portfolio.stockpricefeed.kafka.KafkaProducer;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -28,6 +37,12 @@ import java.util.stream.Collectors;
 @Service
 @Slf4j
 public class MarketDataService {
+
+    @Autowired(required = false)
+    private LivePriceStore livePriceStore;
+
+    @Autowired(required = false)
+    private KafkaProducer kafkaProducer;
 
     private final RestTemplate restTemplate;
 
@@ -86,7 +101,20 @@ public class MarketDataService {
         List<MarketTickerResponse> results = NSE_TICKERS.stream()
                 .map(ticker -> {
                     try {
+                        // Introduce 300ms pacing delay to avoid hitting rate limits (HTTP 429)
+                        Thread.sleep(300);
                         return fetchSingleStock(ticker);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        log.error("[MARKET] Ticker fetch interrupted for {}", ticker, ie);
+                        return MarketTickerResponse.builder()
+                                .ticker(ticker)
+                                .companyName(COMPANY_NAMES.getOrDefault(ticker, ticker))
+                                .currentPrice(0.0)
+                                .change(0.0)
+                                .changePercent(0.0)
+                                .direction("FLAT")
+                                .build();
                     } catch (Exception e) {
                         log.warn("[MARKET] Failed to fetch {} → {}", ticker, e.getMessage());
                         // Return placeholder so the ticker list is not broken
@@ -110,6 +138,32 @@ public class MarketDataService {
                 successCount, NSE_TICKERS.size());
 
         return results;
+    }
+
+    /**
+     * Periodically polls Yahoo Finance API for the live prices of NSE top 20 stocks,
+     * updates the in-memory cache, and publishes the updates to Kafka.
+     * Scheduled to run every 5 minutes (300,000 ms).
+     */
+    @Scheduled(fixedRate = 300000)
+    public void scheduledFetchAndPublish() {
+        log.info("[SCHEDULED] Starting periodic stock price fetch...");
+        List<MarketTickerResponse> liveMarketTickers = getLiveMarketTicker();
+
+        int publishedCount = 0;
+        for (MarketTickerResponse ticker : liveMarketTickers) {
+            if (ticker.getCurrentPrice() > 0) {
+                if (livePriceStore != null) {
+                    livePriceStore.updatePrice(ticker.getTicker(), ticker.getCurrentPrice());
+                }
+                if (kafkaProducer != null) {
+                    StockPriceEvent event = new StockPriceEvent(ticker.getTicker(), ticker.getCurrentPrice());
+                    kafkaProducer.publishPrice(event);
+                    publishedCount++;
+                }
+            }
+        }
+        log.info("[SCHEDULED] Periodic fetch and publish complete. Published {} updates.", publishedCount);
     }
 
     /**
@@ -137,7 +191,12 @@ public class MarketDataService {
                 .queryParam("range", "1d")
                 .toUriString();
 
-        Map<String, Object> response = restTemplate.getForObject(url, Map.class);
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+        HttpEntity<Void> entity = new HttpEntity<>(headers);
+
+        ResponseEntity<Map> responseEntity = restTemplate.exchange(url, HttpMethod.GET, entity, Map.class);
+        Map<String, Object> response = responseEntity.getBody();
 
         if (response == null) {
             throw new RuntimeException("Null response from Yahoo Finance for " + symbol);
