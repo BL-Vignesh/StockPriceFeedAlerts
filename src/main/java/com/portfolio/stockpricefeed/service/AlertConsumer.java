@@ -83,8 +83,10 @@ public class AlertConsumer {
             if (p.getUserId().equals(alert.getUserId())) {
                 if ("UPPER".equals(alert.getAlertType())) {
                     p.setUpperAlertSent(true);
+                    p.setLowerAlertSent(false); // Reset lower limit alert flag
                 } else if ("LOWER".equals(alert.getAlertType())) {
                     p.setLowerAlertSent(true);
+                    p.setUpperAlertSent(false); // Reset upper limit alert flag
                 }
                 portFolioRepository.save(p);
                 break;

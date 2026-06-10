@@ -312,19 +312,5 @@ public class PortFolioService {
         if (p.getLowerLimit() >= 100.0) {
             throw new IllegalArgumentException("Lower limit percentage must be strictly less than 100%.");
         }
-
-        // Validate limits against current market price if available
-        double currentPrice = store.getPrice(p.getStockSymbol());
-        if (currentPrice > 0) {
-            double upperTargetPrice = p.getBuyPrice() * (1 + p.getUpperLimit() / 100.0);
-            double lowerTargetPrice = p.getBuyPrice() * (1 - p.getLowerLimit() / 100.0);
-
-            if (p.getUpperLimit() > 0 && currentPrice >= upperTargetPrice) {
-                throw new IllegalArgumentException(String.format("Current price (₹%.2f) is already higher than or equal to the target upper price (₹%.2f based on %.2f%% limit).", currentPrice, upperTargetPrice, p.getUpperLimit()));
-            }
-            if (p.getLowerLimit() > 0 && currentPrice <= lowerTargetPrice) {
-                throw new IllegalArgumentException(String.format("Current price (₹%.2f) is already lower than or equal to the target lower price (₹%.2f based on %.2f%% limit).", currentPrice, lowerTargetPrice, p.getLowerLimit()));
-            }
-        }
     }
 }

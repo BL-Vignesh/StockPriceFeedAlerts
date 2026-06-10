@@ -102,6 +102,7 @@ public class KafkaConsumer {
             // Step 5: Check Alerts
             if (upperCrossed && !p.isUpperAlertSent()) {
                 p.setUpperAlertSent(true);
+                p.setLowerAlertSent(false); // Reset lower alert flag
                 repository.save(p);
                 StockPriceAlert alert = new StockPriceAlert(
                         p.getUserId(), p.getStockSymbol(), event.getPrice(), upperTargetPrice, "UPPER",
@@ -114,6 +115,7 @@ public class KafkaConsumer {
 
             if (lowerCrossed && !p.isLowerAlertSent()) {
                 p.setLowerAlertSent(true);
+                p.setUpperAlertSent(false); // Reset upper alert flag
                 repository.save(p);
                 StockPriceAlert alert = new StockPriceAlert(
                         p.getUserId(), p.getStockSymbol(), event.getPrice(), lowerTargetPrice, "LOWER",

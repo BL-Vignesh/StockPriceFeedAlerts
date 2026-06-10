@@ -105,40 +105,4 @@ class PortFolioServiceValidationTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Lower limit percentage must be strictly less than 100%");
     }
-
-    @Test
-    void testSavePortfolio_upperLimitBelowCurrentPrice_throwsException() {
-        Portfolio p = new Portfolio();
-        p.setUserId(1L);
-        p.setStockSymbol("RELIANCE");
-        p.setQuantity(10);
-        p.setBuyPrice(2500.0);
-        p.setUpperLimit(10.0); // Target = ₹2750.0
-        p.setLowerLimit(0.0);
-
-        when(store.getPrice("RELIANCE")).thenReturn(2800.0); // Current ₹2800.0 >= ₹2750.0
-
-        assertThatThrownBy(() -> portfolioService.savePortfolio(p))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Current price")
-                .hasMessageContaining("is already higher than or equal to the target upper price");
-    }
-
-    @Test
-    void testSavePortfolio_lowerLimitAboveCurrentPrice_throwsException() {
-        Portfolio p = new Portfolio();
-        p.setUserId(1L);
-        p.setStockSymbol("RELIANCE");
-        p.setQuantity(10);
-        p.setBuyPrice(2500.0);
-        p.setUpperLimit(0.0);
-        p.setLowerLimit(10.0); // Target = ₹2250.0
-
-        when(store.getPrice("RELIANCE")).thenReturn(2200.0); // Current ₹2200.0 <= ₹2250.0
-
-        assertThatThrownBy(() -> portfolioService.savePortfolio(p))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Current price")
-                .hasMessageContaining("is already lower than or equal to the target lower price");
-    }
 }
